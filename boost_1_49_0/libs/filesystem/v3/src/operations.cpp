@@ -81,13 +81,15 @@ using std::wstring;
     const fs::path dot_path(".");
     const fs::path dot_dot_path("..");
 #   include <sys/types.h>
-#   if !defined(__APPLE__) && !defined(__OpenBSD__)
+#   if !defined(__APPLE__) && !defined(__OpenBSD__) && !defined(__ANDROID__) && !defined(ANDROID)
 #     include <sys/statvfs.h>
 #     define BOOST_STATVFS statvfs
 #     define BOOST_STATVFS_F_FRSIZE vfs.f_frsize
 #   else
 #     ifdef __OpenBSD__
 #     include <sys/param.h>
+#     elif defined(__ANDROID__) || defined(ANDROID) // @Moss - Android messes up a bit with some headers, this one is the correct one :D
+#     include <sys/vfs.h>
 #     endif
 #     include <sys/mount.h>
 #     define BOOST_STATVFS statfs
@@ -214,7 +216,19 @@ typedef struct _REPARSE_DATA_BUFFER {
          || ::mkdir(to.c_str(),from_stat.st_mode)!= 0))
 #   define BOOST_COPY_FILE(F,T,FailIfExistsBool)copy_file_api(F, T, FailIfExistsBool)
 #   define BOOST_MOVE_FILE(OLD,NEW)(::rename(OLD, NEW)== 0)
+#if defined(__ANDROID__) || defined(ANDROID)
+    int BOOST_RESIZE_FILE(const char *path, off_t size)
+    {
+      int result = -1;
+      int fd = open(path, O_WRONLY);
+      if (fd != -1)
+	    result = ftruncate(fd, size);
+      close(fd);
+      return result;
+    }
+#else
 #   define BOOST_RESIZE_FILE(P,SZ)(::truncate(P, SZ)== 0)
+#endif
 
 #   define BOOST_ERROR_NOT_SUPPORTED ENOSYS
 #   define BOOST_ERROR_ALREADY_EXISTS EEXIST
